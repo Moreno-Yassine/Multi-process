@@ -13,6 +13,9 @@
 //------------------------------------------------------ Include personnel
 #include "ManagerSortie.h"
 #include "Config.h"
+#include <algorithm>
+#include <vector>
+#include <map>
 using namespace std;
 ///////////////////////////////////////////////////////////////////  PRIVE
 //------------------------------------------------------------- Constantes
@@ -20,20 +23,32 @@ using namespace std;
 //------------------------------------------------------------------ Types
 
 //---------------------------------------------------- Variables statiques
-static map<pid_t,Voiture> pidVoituriers;
+static int idMessagerie;
 static int semId;
 static int requestAreaId;
 static int parkingPlaceId;
+static map<pid_t,int> pidVideurs;
 static Voiture * ptPlaces;
 static Requete * ptRequetes;
 //------------------------------------------------------ Fonctions privées
+static void destruction();
 
-/*void finSortie ( int noSignal )
+static void finSortie ( int noSignal )
 {
-
+	if (noSignal==SIGUSR2)
+	{
+		sigaction (SIGCHLD,NULL,NULL);
+		for ( map<pid_t,int>::iterator itListePid = pidVideurs.begin() ; itListePid != pidVideurs.end(); itListePid++ )
+		{
+			kill(itListePid->first,SIGUSR2);
+			while(waitpid(itListePid->first,NULL,0)!=0);
+		}
+		destruction();
+		
+	}
 }
 
-void mortVideur( int noSignal )
+static void mortVideur( int noSignal )
 {
 	if (noSignal == SIGCHLD)
 	{
@@ -54,7 +69,7 @@ void mortVideur( int noSignal )
 			//----Fin extraction
 
 			AfficherSortie(voitureCourante.conducteur, voitureCourante.numVoiture, voitureCourante.arrivee, time(NULL) );
-
+			pidVideurs.erase(pidVideurs.find(noVoiturierDecede));
 			sembuf bufferPlaces;
 			bufferPlaces.sem_num = SEM_NB_PLACES_PK;
 			bufferPlaces.sem_op = 1;
@@ -62,38 +77,50 @@ void mortVideur( int noSignal )
 			if(semctl(semId,SEM_NB_PLACES_PK,GETVAL,0)==0)
 			//Si le parking est plein, on va donner l'autorisation au bon usager
 			{
-				if(semctl(semId,MUTEX_REQUETE,GETVAL,0)!=0)
+				sembuf mutexPlacesVerif;
+				mutexPlacesVerif.sem_num = MUTEX_PLACES;
+				mutexPlacesVerif.sem_op = -1;
+				mutexPlacesVerif.sem_flg = 0;
+				int verif = semop(semId,&mutexPlacesVerif,1);
+
+
+				vector<Requete> listeRq;
+				listeRq.push_back(ptRequetes[0]);
+				listeRq.push_back(ptRequetes[1]);
+				listeRq.push_back(ptRequetes[2]);				
+
+				mutexPlacesVerif.sem_op =1;
+				semop(semId,&mutexPlacesVerif,1);
+
+
+				sort(listeRq.begin(),listeRq.end(),TrierRequetes);
+				if(listeRq[0].usager != AUCUN)
 				{
-					vector<Requete> listeRq;
-					listeRq.push_back(ptRequetes[0]);
-					listeRq.push_back(ptRequetes[1]);
-					listeRq.push_back(ptRequetes[2]);
-					sort(listeRq.begin(),listeRq.end(),TrierRequetes);
-					if(listeRq[0]!=NULL)
-					{
-						sembuf bufferSynchro;
-						bufferSynchro.sem_num = listeRq[0].barriere; //ARCHI FAUX!!, mais ça doit marcher (def de l'enum des sem)
-						bufferSynchro.sem_op = 1;
-						bufferSynchro.sem_flg = 0;
-						semop(semId,&bufferSynchro,1);
-					}
+					sembuf bufferSynchro;
+					bufferSynchro.sem_num = listeRq[0].barriere;
+					bufferSynchro.sem_op = 1;
+					bufferSynchro.sem_flg = 0;
+					semop(semId,&bufferSynchro,1);
+				} else {
+					semop(semId,&bufferPlaces,1);				
 				}
 			} else {
 				semop(semId,&bufferPlaces,1);
+
 			}
 		}
 	}
 }
 
-void initialisation()
+static void initialisation()
 {
 	//Recuperation COMM
 	semId = semget(CLEFSEM,7,0);
 	requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),0);
 	parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),0);
-	ptPlaces = shmat(requestPlaceId,NULL,0);
-	ptRequetes = shmat(requestAreaId,NULL,0);
-
+	ptPlaces = (Voiture*)shmat(parkingPlaceId,NULL,0);
+	ptRequetes = (Requete*)shmat(requestAreaId,NULL,0);
+	idMessagerie = msgget(CLEFMESSAGERIESORTIE,0);
 
 	struct sigaction actionFinManager; //HANDLER de SIGUSR2
 	struct sigaction actionMortVideur; //HANDLER de SIGCHLD
@@ -104,30 +131,39 @@ void initialisation()
 	actionFinManager.sa_flags = 0;
 	actionMortVideur.sa_flags = 0;
 	sigaction (SIGUSR2,&actionFinManager,NULL);
-	sigaction (SIGUSR2,&actionMortVideur,NULL);
+	sigaction (SIGCHLD,&actionMortVideur,NULL);
 
 }
-void moteur (int msqId)
+static void moteur ()
 {
 	long type = 0;
 	unsigned int taille = sizeof(int);
 	unsigned int place;
-	//int msg = msgrcv (msqId,&place,taille,type,0);
-	pid_t videur = SortirVoiture (place);
-	waitpid (videur, NULL , 0);
+	int msg = msgrcv (idMessagerie,&place,taille,type,0);
+	pid_t videur;
+	if (msg!= -1)
+	{
+		// GESTION DE SEMAPHORES
+		videur = SortirVoiture (place);
+		if(videur!=-1)
+			pidVideurs.insert(make_pair(videur,place));
+	}
+	//waitpid (videur, NULL , 0);
 	//Effacer ( TypeZone zone );
 
-
+	//sleep (TEMPO);		????? c'est ici qu'elle va la tempo?
 }
-void destruction ()
+static void destruction ()
 {
 	shmdt(ptRequetes);
 	shmdt(ptPlaces);
+	exit(0);
 }
 //////////////////////////////////////////////////////////////////  PUBLIC
 //---------------------------------------------------- Fonctions publiques
-void ManagerSortie (int msqId)
+void ManagerSortie ()
 {
 	initialisation();
-	moteur(msqId);
-}*/
+	for(;;)
+	moteur();
+}

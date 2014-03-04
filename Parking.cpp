@@ -15,6 +15,7 @@
 #include "Entree.h"
 #include "Simulation.h"
 #include "Heure.h"
+#include "ManagerSortie.h"
 using namespace std;
 ///////////////////////////////////////////////////////////////////  PRIVE
 //------------------------------------------------------------- Constantes
@@ -47,7 +48,7 @@ int main ()
 	int msqIdSortie = msgget(CLEFMESSAGERIESORTIE,0660 | IPC_CREAT);
 	
 	//Création des Semaphores
-	int semId = semget(CLEFSEM,7,IPC_CREAT | 0660);
+	int semId = semget(CLEFSEM,7,0660 | IPC_CREAT);	
 	//Memoires partagées
 	int requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),IPC_CREAT | 0660);
 	int parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),IPC_CREAT | 0660);
@@ -61,11 +62,16 @@ int main ()
 	pid_t horlogeTache;
 	//Masquage de SIGUSR2
 
+	//Initialisation des semaphores
+	semctl(semId,SEM_AUTORISATION_PORTE_1,SETVAL,0);
+	semctl(semId,SEM_AUTORISATION_PORTE_2,SETVAL,0);
+	semctl(semId,SEM_AUTORISATION_PORTE_3,SETVAL,0);
+	semctl(semId,SEM_NB_PLACES_PK,SETVAL,NB_PLACES);
+	semctl(semId,MUTEX_PLACES,SETVAL,1);
+	semctl(semId,MUTEX_REQUETES,SETVAL,1);
+
 	// Initialisation de l'application
 	InitialiserApplication(TERMINAL);
-
-	//Initialisation du semaphore PLACES à 8
-	semctl(semId,SEM_NB_PLACES_PK,SETVAL,8);
 
 	//Horloge
 	horlogeTache = ActiverHeure();
@@ -76,6 +82,12 @@ int main ()
 		Simulation(msqIdEntree,msqIdSortie);
 	} else if( (entreeGastonBergerTache = fork()) == 0 ) {
 		Entree(3);
+	} else if( (entreeBlaisePascalProfTache = fork()) == 0 ) {
+		Entree(1);
+	} else if( (entreeBlaisePascalAutreTache = fork()) ==0 ) {
+		Entree(2);
+	}else if( (managerSortieTache = fork()) ==0 ) {
+		ManagerSortie();
 	}
 	else
 	{
@@ -85,7 +97,15 @@ int main ()
 		
 		kill(entreeGastonBergerTache,SIGUSR2);
 		waitpid(entreeGastonBergerTache,NULL,0);
+
+		kill(entreeBlaisePascalProfTache,SIGUSR2);
+		waitpid(entreeBlaisePascalProfTache,NULL,0);
+
+		kill(entreeBlaisePascalAutreTache,SIGUSR2);
+		waitpid(entreeBlaisePascalAutreTache,NULL,0);
 		
+		kill(managerSortieTache,SIGUSR2);
+		waitpid(managerSortieTache,NULL,0);
 		//Destruction des canaux de communication
 		shmctl(requestAreaId,IPC_RMID,0);
 		shmctl(parkingPlaceId,IPC_RMID,0);

@@ -1,34 +1,30 @@
 /*************************************************************************
-                           Parking  -  description
+                           Simulation  -  description
                              -------------------
     début                : 27 févr. 2014
     copyright            : (C) 2014 par ymoreno
 *************************************************************************/
 
-//---------- Interface de la tâche <Parking> (fichier Parking.h) -------
-#if ! defined ( PARKING_H_ )
-#define PARKING_H_
+//---------- Interface de la tâche <Simulation> (fichier Simulation.h) -------
+#if ! defined ( SIMULATION_H_ )
+#define SIMULATION_H_
 
 //------------------------------------------------------------------------
-// Rôle de la tâche <Parking>
+// Rôle de la tâche <Simulation>
 //
 //
 //------------------------------------------------------------------------
 
 /////////////////////////////////////////////////////////////////  INCLUDE
 //--------------------------------------------------- Interfaces utilisées
-
 //------------------------------------------------------------- Constantes
 
 //------------------------------------------------------------------ Types
 
 //////////////////////////////////////////////////////////////////  PUBLIC
 //---------------------------------------------------- Fonctions publiques
-// type Nom ( liste de paramètres );
-// Mode d'emploi :
-//
-// Contrat :
-//
+void Simulation(int msqIdEntree,int msqIdSortie);
+void Commande(char,unsigned int);
 
-#endif // PARKING_H_
+#endif // SIMULATION_H_
 

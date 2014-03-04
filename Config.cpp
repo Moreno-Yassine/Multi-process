@@ -58,9 +58,9 @@ TypeBarriere IntToPorte (int porte) {
 
 bool TrierRequetes ( Requete a, Requete b )
 {
-	if(a==NULL)
+	if(a.usager==0)
 		return false;
-	if(b==NULL)
+	if(b.usager==0)
 		return true;
 
 	if(a.usager==b.usager)

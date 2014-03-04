@@ -9,28 +9,28 @@ RM=rm
 CLEAN=efface
 
 #flags
-CPPFLAGS=-W -Wall
+CPPFLAGS=-c -Wall
 EDLFLAGS=-g
 RMFLAGS=-f
 
 #files
-INCPATH=#-I
-LIBPATH=#-L
-OBJ=Parking.o
+LIBPATH=-L./
+INCPATH=-I./
+INTERFACE = Parking.h Simulation.h Entree.h ManagerSortie.h Config.h
+LIBSYSTEME = -ltp -lncurses -ltcl
+CFILES = $(INTERFACE:.h=.cpp)
+OBJ=$(INTERFACE:.h=.o)
 
 $(EXE): $(OBJ)
 	$(ECHO) EdL de $(EXE)
-	$(EDL) $(LIBPATH) -o $(EXE) $(OBJ)
+	$(EDL) -o $(EXE) $(OBJ) $(LIBPATH) $(LIBSYSTEME)
 
 %.o: %.cpp
-	$(ECHO) Compilation de $@
-	$(COMP) $(CPPFLAGS) $(INCPATH) -c $< -o $@
+	$(ECHO) Compilation de $<
+	$(COMP) $(CPPFLAGS) $(INCPATH) $<
 
-Parking.o: Parking.cpp Parking.h
 
 .PHONY:$(CLEAN)
 $(CLEAN):
 	$(ECHO) Tout va disparaitre
 	$(RM) $(RMFLAGS) $(OBJ) $(EXE) Core
-
-

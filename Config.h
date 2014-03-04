@@ -17,7 +17,8 @@
 
 /////////////////////////////////////////////////////////////////  INCLUDE
 //--------------------------------------------------- Interfaces utilisées
-#include "/public/tp/tp-multitache/Outils.h"
+#include "Outils.h"
+#include <errno.h>
 #include <sys/msg.h>
 #include <iostream>
 #include <unistd.h>
@@ -34,15 +35,13 @@
 #include <algorithm>
     
 //------------------------------------------------------------- Constantes
-const TypeTerminal TERMINAL = XTERM;
+const TypeTerminal TERMINAL = VT220;
 const int NB_SEMAPHORES = 7;
 const key_t CLEFMESSAGERIEENTREE = ftok("Parking",1);
 const key_t CLEFMESSAGERIESORTIE = ftok("Parking",2);
-const key_t CLEFPARKING = ftok("Parking",3);
-const key_t CLEFREQ = ftok("Parking",4);
-const key_t CLEFSEM = ftok("Parking",5);
-const key_t CLEFPLACES = ftok("Parking",6);
-const key_t CLEFREQUEST = ftok("Parking",7);
+const key_t CLEFSEM = ftok("Parking",3);
+const key_t CLEFPLACES = ftok("Parking",4);
+const key_t CLEFREQUEST = ftok("Parking",5);
 //Id du bloc de semaphore, partagé avec tous les modules
 const int TEMPO = 1;
 //------------------------------------------------------------------ Types
@@ -71,13 +70,16 @@ struct MessagePorte
 };
 
 enum Semaphores
-{	SEM_NB_PLACES_PK,
+{	NONE,
 	SEM_AUTORISATION_PORTE_1,
 	SEM_AUTORISATION_PORTE_2,
 	SEM_AUTORISATION_PORTE_3,
+	SEM_NB_PLACES_PK,
 	MUTEX_REQUETES,
 	MUTEX_PLACES
 };
+
+const Requete REQUETE_NULLE = {AUCUNE,AUCUN,100}; 
 //////////////////////////////////////////////////////////////////  PUBLIC
 //---------------------------------------------------- Fonctions publiques
 TypeBarriere IntToPorte (int porte);
