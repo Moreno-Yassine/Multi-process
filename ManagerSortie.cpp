@@ -37,14 +37,13 @@ static void finSortie ( int noSignal )
 {
 	if (noSignal==SIGUSR2)
 	{
-		sigaction (SIGCHLD,NULL,NULL);
+        sigaction (SIGCHLD,NULL,NULL);
 		for ( map<pid_t,int>::iterator itListePid = pidVideurs.begin() ; itListePid != pidVideurs.end(); itListePid++ )
 		{
-			kill(itListePid->first,SIGUSR2);
-			while(waitpid(itListePid->first,NULL,0)!=0);
+            kill(itListePid->first,SIGUSR2);
+            waitpid(itListePid->first,NULL,0);
 		}
-		destruction();
-		
+        destruction();
 	}
 }
 
@@ -69,6 +68,7 @@ static void mortVideur( int noSignal )
 			//----Fin extraction
 
 			AfficherSortie(voitureCourante.conducteur, voitureCourante.numVoiture, voitureCourante.arrivee, time(NULL) );
+            Effacer((TypeZone)noPlace);
 			pidVideurs.erase(pidVideurs.find(noVoiturierDecede));
 			sembuf bufferPlaces;
 			bufferPlaces.sem_num = SEM_NB_PLACES_PK;
@@ -81,7 +81,7 @@ static void mortVideur( int noSignal )
 				mutexPlacesVerif.sem_num = MUTEX_PLACES;
 				mutexPlacesVerif.sem_op = -1;
 				mutexPlacesVerif.sem_flg = 0;
-				int verif = semop(semId,&mutexPlacesVerif,1);
+                semop(semId,&mutexPlacesVerif,1);
 
 
 				vector<Requete> listeRq;
@@ -92,7 +92,7 @@ static void mortVideur( int noSignal )
 				mutexPlacesVerif.sem_op =1;
 				semop(semId,&mutexPlacesVerif,1);
 
-
+				//Classement des usagers par priorité
 				sort(listeRq.begin(),listeRq.end(),TrierRequetes);
 				if(listeRq[0].usager != AUCUN)
 				{
@@ -101,7 +101,7 @@ static void mortVideur( int noSignal )
 					bufferSynchro.sem_op = 1;
 					bufferSynchro.sem_flg = 0;
 					semop(semId,&bufferSynchro,1);
-				} else {
+                } else {
 					semop(semId,&bufferPlaces,1);				
 				}
 			} else {
@@ -148,9 +148,6 @@ static void moteur ()
 		if(videur!=-1)
 			pidVideurs.insert(make_pair(videur,place));
 	}
-	//waitpid (videur, NULL , 0);
-	//Effacer ( TypeZone zone );
-
 	//sleep (TEMPO);		????? c'est ici qu'elle va la tempo?
 }
 static void destruction ()
