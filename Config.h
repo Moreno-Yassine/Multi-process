@@ -42,8 +42,12 @@ const key_t CLEFMESSAGERIESORTIE = ftok("Parking",2);
 const key_t CLEFSEM = ftok("Parking",3);
 const key_t CLEFPLACES = ftok("Parking",4);
 const key_t CLEFREQUEST = ftok("Parking",5);
-//Id du bloc de semaphore, partagé avec tous les modules
 const int TEMPO = 1;
+
+// INDICE_BARRIERE_1 indique le numéro de la premiere porte 
+// (ici le numéro associé à PROF_BLAISE_PASCAL est 1)
+const int INDICE_BARRIERE_1 = 1;
+
 //------------------------------------------------------------------ Types
 struct Voiture
 {
@@ -80,6 +84,7 @@ enum Semaphores
 };
 
 const Requete REQUETE_NULLE = {AUCUNE,AUCUN,100}; 
+const int TAILLE_MESSAGE_PORTE = sizeof(MessagePorte);
 //////////////////////////////////////////////////////////////////  PUBLIC
 //---------------------------------------------------- Fonctions publiques
 TypeBarriere IntToPorte (int porte);

@@ -81,17 +81,18 @@ int main ()
 	{
 		Simulation(msqIdEntree,msqIdSortie);
 	} else if( (entreeGastonBergerTache = fork()) == 0 ) {
-		Entree(3);
+		Entree(ENTREE_GASTON_BERGER);
 	} else if( (entreeBlaisePascalProfTache = fork()) == 0 ) {
-		Entree(1);
+		Entree(PROF_BLAISE_PASCAL);
 	} else if( (entreeBlaisePascalAutreTache = fork()) ==0 ) {
-		Entree(2);
+		Entree(AUTRE_BLAISE_PASCAL);
 	}else if( (managerSortieTache = fork()) ==0 ) {
 		ManagerSortie();
 	}
 	else
 	{
 		waitpid(simulationTache,NULL,0);
+		
 		kill(horlogeTache,SIGUSR2);
 		waitpid(horlogeTache,NULL,0);
 		

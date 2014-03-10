@@ -29,7 +29,8 @@ static Voiture * ptPlaces;
 static Requete * ptRequetes;
 static int idElemSemSynchro;
 static int idMessagerie;
-static TypeBarriere barriereCourante;
+static long typeMessage;
+static TypeZone zoneRequete;
 //------------------------------------------------------ Fonctions privées
 void destruction ();
 
@@ -41,7 +42,7 @@ void finEntree( int noSignal )
 		for ( map<pid_t,Voiture>::iterator itListePid = pidVoituriers.begin() ; itListePid != pidVoituriers.end(); itListePid++ )
 		{
 			kill(itListePid->first,SIGUSR2);
-			while(waitpid(itListePid->first,NULL,0)!=-1);
+            waitpid(itListePid->first,NULL,0);
 		}
 		destruction();
 	}
@@ -49,7 +50,7 @@ void finEntree( int noSignal )
 
 void mortVoiturier(int noSignal)
 {
-	if (noSignal == SIGCHLD)
+    if (noSignal == SIGCHLD)
 	{
 		int crdu;
 		pid_t noVoiturierDecede = waitpid(-1,&crdu,0);
@@ -88,8 +89,6 @@ void mortVoiturier(int noSignal)
 void initialisation()
 {
 	semId = semget(CLEFSEM,7,0660);
-	Afficher (MESSAGE,errno);
-	sleep(3);
 	requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),0);
 	parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),0);
 	ptPlaces = (Voiture*)shmat(parkingPlaceId,NULL,0);
@@ -102,32 +101,28 @@ void initialisation()
 	actionMortVoiturier.sa_handler = mortVoiturier;
 	sigemptyset(&actionFinEntree.sa_mask);
 	sigemptyset(&actionMortVoiturier.sa_mask);
-	actionFinEntree.sa_flags = 0;
+    actionFinEntree.sa_flags = 0;
 	actionMortVoiturier.sa_flags = 0;
 	//ARMEMENT
-	sigaction (SIGUSR2,&actionFinEntree,NULL);
+    sigaction (SIGUSR2,&actionFinEntree,NULL);
 	sigaction (SIGCHLD,&actionMortVoiturier,NULL);
 }
 
-void moteur (int numPorte)
+void moteur (TypeBarriere barriereCourante)
 {
-	long type = numPorte;// a définir dans la config
-	int taille = sizeof(MessagePorte);// a definir dans la config
 	MessagePorte messageEntrant;
 	int msg=-1;
 
-	msg = msgrcv (idMessagerie,&messageEntrant,taille,type,type);
-	Afficher (MESSAGE,errno);
+	msg = msgrcv (idMessagerie,&messageEntrant,TAILLE_MESSAGE_PORTE,typeMessage,typeMessage);
 	if (msg !=-1)
 	{
-		DessinerVoitureBarriere(barriereCourante,AUTRE);
-		
 		//Création de la requète
 		Requete requeteCourante;
-		requeteCourante.barriere = IntToPorte(numPorte);
+		requeteCourante.barriere = barriereCourante;
 		requeteCourante.usager = messageEntrant.vehiculeEntrant.conducteur;
 		requeteCourante.daterequete = time(NULL);	//On enregistre l'heure d'arrivée devant la porte
 
+		DessinerVoitureBarriere(barriereCourante,requeteCourante.usager);
 
 		//Chargement de la MP requete---
 		sembuf bufferMutexRequest;
@@ -135,7 +130,7 @@ void moteur (int numPorte)
 		bufferMutexRequest.sem_op = -1;
 		bufferMutexRequest.sem_flg = 0;
 
-		ptRequetes[numPorte-1] = requeteCourante;
+		ptRequetes[barriereCourante-INDICE_BARRIERE_1] = requeteCourante;
 
 		bufferMutexRequest.sem_op = 1;
 		semop(semId,&bufferMutexRequest,1);
@@ -159,17 +154,14 @@ void moteur (int numPorte)
 			bufferSynchro.sem_flg = 0;
 			//En attente de la sortie pour autorisation de passage
 			while(semop(semId,&bufferSynchro,1)!=0);
-			int i = semctl(semId,idElemSemSynchro,GETVAL,0);
-			Afficher(MESSAGE,i);
-			sleep(1);
+            semctl(semId,idElemSemSynchro,GETVAL,0);
 		} else {
 			//On enleve une place
 			//semop(semId,&bufferPlaces,1);
 			while(semop(semId,&bufferPlaces,1)!=0);
 		}
 
-		TypeBarriere barriere = IntToPorte(numPorte);
-		pid_t pidVoiturierCourant = GarerVoiture ( barriere );
+		pid_t pidVoiturierCourant = GarerVoiture ( barriereCourante );
 		if(pidVoiturierCourant!=-1)
 		{
 			pidVoituriers.insert(make_pair(pidVoiturierCourant, messageEntrant.vehiculeEntrant));
@@ -177,14 +169,14 @@ void moteur (int numPorte)
 			bufferMutexRequest.sem_op = -1;
 			semop(semId,&bufferMutexRequest,1);
 
-			ptRequetes[numPorte-1] = REQUETE_NULLE;
+			ptRequetes[barriereCourante-INDICE_BARRIERE_1] = REQUETE_NULLE;
 
 			bufferMutexRequest.sem_op = 1;
 			semop(semId,&bufferMutexRequest,1);
 			//--fin chargement requete	
+            Effacer(zoneRequete);
 			sleep(TEMPO);
 		}
-		
 	}
 }
 
@@ -198,25 +190,29 @@ void destruction ()
 
 //////////////////////////////////////////////////////////////////  PUBLIC
 //---------------------------------------------------- Fonctions publiques
-void Entree(int numPorte)
+void Entree(TypeBarriere barriereCourante)
 {
-	switch(numPorte)
+	typeMessage = (int)barriereCourante;
+	switch(barriereCourante)
 	{
-	case 1:
-		barriereCourante = PROF_BLAISE_PASCAL;
+	case PROF_BLAISE_PASCAL:
 		idElemSemSynchro = SEM_AUTORISATION_PORTE_1;
+        zoneRequete = REQUETE_R1;
 		break;
-	case 2:
-		barriereCourante = AUTRE_BLAISE_PASCAL;
+	case AUTRE_BLAISE_PASCAL:
 		idElemSemSynchro = SEM_AUTORISATION_PORTE_2;
+        zoneRequete = REQUETE_R2;
 		break;
-	case 3:
-		barriereCourante = ENTREE_GASTON_BERGER;
+	case ENTREE_GASTON_BERGER:
 		idElemSemSynchro = SEM_AUTORISATION_PORTE_3;
+        zoneRequete = REQUETE_R3;
 		break;
+    default:
+        return;
+        break;
 	}
 
 	initialisation();
 	for(;;)
-		moteur(numPorte);
+		moteur(barriereCourante);
 }
