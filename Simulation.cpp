@@ -43,7 +43,6 @@ void Simulation (int msqIdEntree,int msqIdSortie)
 
 void Commande ( char code, unsigned int valeur )
 {
-	int msg;
 	TypeBarriere barriere;
 	unsigned int placeSortie;
 	static int compteur = 1; // num des voiture
@@ -69,8 +68,7 @@ void Commande ( char code, unsigned int valeur )
 					MessagePorte carsent;
 					carsent.type = barriere;
 					carsent.vehiculeEntrant = v;
-					msg = msgsnd(msqEntree,&carsent,sizeof(MessagePorte),barriere);// DEPOT BLOQUANT SI SATURATION
-					Afficher(MESSAGE,errno);
+                    msgsnd(msqEntree,&carsent,sizeof(MessagePorte),barriere);// DEPOT BLOQUANT SI SATURATION
 					break;
 	case (CODE_P) :
 					//créer voiture AUTRE,Compteur,HeureArrivee
@@ -81,7 +79,7 @@ void Commande ( char code, unsigned int valeur )
 							if (valeur == 2)
 							{
 								barriere = ENTREE_GASTON_BERGER;
-							}
+                            }
 					Voiture vProf;
 					vProf.conducteur = PROF;
 					vProf.numVoiture=compteur++;
@@ -89,15 +87,14 @@ void Commande ( char code, unsigned int valeur )
 					MessagePorte carsentProf;
 					carsentProf.type = barriere;
 					carsentProf.vehiculeEntrant=vProf;
-					msg = msgsnd(msqEntree,&carsentProf,sizeof(MessagePorte),barriere); 
+                    msgsnd(msqEntree,&carsentProf,sizeof(MessagePorte),barriere);
 					//Voiture v (PROF,compteur++,time(NULL))
 					// DEPOT BLOQUANT SI SATURATION
 					break;
 	case (CODE_S) :
 					//sortie voiture ...
 					placeSortie = valeur;
-					msg = msgsnd (msqSortie,&placeSortie,sizeof(unsigned int),0);
-					Afficher(MESSAGE,MSG_SORTIE);
+                    msgsnd (msqSortie,&placeSortie,sizeof(unsigned int),0);
 					break;
 	default :
 		break;

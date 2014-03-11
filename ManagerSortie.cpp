@@ -34,13 +34,14 @@ static Requete * ptRequetes;
 static void destruction();
 
 static void finSortie ( int noSignal )
+// Destruction successive de l'ensemble des videurs actuellement en execution
 {
 	if (noSignal==SIGUSR2)
 	{
-        sigaction (SIGCHLD,NULL,NULL);
 		for ( map<pid_t,int>::iterator itListePid = pidVideurs.begin() ; itListePid != pidVideurs.end(); itListePid++ )
 		{
             kill(itListePid->first,SIGUSR2);
+            Afficher(MESSAGE,itListePid->first);
             waitpid(itListePid->first,NULL,0);
 		}
         destruction();
@@ -48,6 +49,8 @@ static void finSortie ( int noSignal )
 }
 
 static void mortVideur( int noSignal )
+// Mort videur récupère d'abord la place correspondant au videur,
+// puis affiche la sortie, et traite les priorité en cas de parking plein
 {
 	if (noSignal == SIGCHLD)
 	{
@@ -62,14 +65,16 @@ static void mortVideur( int noSignal )
 			bufferMutexPlaces.sem_op = 1;
 			bufferMutexPlaces.sem_flg = 0;
 			semop(semId,&bufferMutexPlaces,1);
-			Voiture voitureCourante = ptPlaces[noPlace]; //On commence à 0 ou à 1?????
+
+            Voiture voitureCourante = ptPlaces[noPlace];
+
 			bufferMutexPlaces.sem_op = -1;
 			semop(semId,&bufferMutexPlaces,1);
 			//----Fin extraction
 
-			AfficherSortie(voitureCourante.conducteur, voitureCourante.numVoiture, voitureCourante.arrivee, time(NULL) );
-            Effacer((TypeZone)noPlace);
+            AfficherSortie(voitureCourante.conducteur, voitureCourante.numVoiture, voitureCourante.arrivee, time(NULL) );
 			pidVideurs.erase(pidVideurs.find(noVoiturierDecede));
+
 			sembuf bufferPlaces;
 			bufferPlaces.sem_num = SEM_NB_PLACES_PK;
 			bufferPlaces.sem_op = 1;
@@ -113,14 +118,17 @@ static void mortVideur( int noSignal )
 }
 
 static void initialisation()
+// l'initialisation récupère les canaux de communication (en lecture)
+// et arme les signaux
+// SIGUSR2 pour la destruction, et SIGCHLD pour la mort d'un videur
 {
 	//Recuperation COMM
-	semId = semget(CLEFSEM,7,0);
-	requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),0);
-	parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),0);
-	ptPlaces = (Voiture*)shmat(parkingPlaceId,NULL,0);
-	ptRequetes = (Requete*)shmat(requestAreaId,NULL,0);
-	idMessagerie = msgget(CLEFMESSAGERIESORTIE,0);
+    semId = semget(CLEFSEM,7,DROITS);
+    requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),LECTURE);
+    parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),LECTURE);
+    ptPlaces = (Voiture*)shmat(parkingPlaceId,NULL,LECTURE);
+    ptRequetes = (Requete*)shmat(requestAreaId,NULL,LECTURE);
+    idMessagerie = msgget(CLEFMESSAGERIESORTIE,DROITS);
 
 	struct sigaction actionFinManager; //HANDLER de SIGUSR2
 	struct sigaction actionMortVideur; //HANDLER de SIGCHLD
@@ -134,23 +142,53 @@ static void initialisation()
 	sigaction (SIGCHLD,&actionMortVideur,NULL);
 
 }
+
+
 static void moteur ()
+// Le moteur récupère la voiture à sortir dans la boîte aux lettres,
+// on vérifie si la place est occupée, si la place l'est bien, on appelle
+// un videur, on efface la place sur l'ecran, puis on attend
 {
 	long type = 0;
 	unsigned int taille = sizeof(int);
 	unsigned int place;
+    bool placeVide = false;
+
 	int msg = msgrcv (idMessagerie,&place,taille,type,0);
+
 	pid_t videur;
-	if (msg!= -1)
+    if (msg!= -1)
 	{
-		// GESTION DE SEMAPHORES
-		videur = SortirVoiture (place);
-		if(videur!=-1)
-			pidVideurs.insert(make_pair(videur,place));
-	}
-	//sleep (TEMPO);		????? c'est ici qu'elle va la tempo?
+        //Extraction place ------
+        sembuf bufferMutexPlaces;
+        bufferMutexPlaces.sem_num = MUTEX_PLACES;
+        bufferMutexPlaces.sem_op = 1;
+        bufferMutexPlaces.sem_flg = 0;
+        semop(semId,&bufferMutexPlaces,1);
+
+        placeVide = (ptPlaces[place].conducteur==AUCUN);
+
+        bufferMutexPlaces.sem_op = -1;
+        semop(semId,&bufferMutexPlaces,1);
+        //----Fin extraction
+
+        if(!placeVide)
+        {
+            videur = SortirVoiture (place);
+
+
+            if(videur!=-1)
+            {
+                Effacer((TypeZone)place);
+                pidVideurs.insert(make_pair(videur,place));
+            }
+        } else {
+            Afficher(MESSAGE,"Vous avez du vous tromper de place...");
+        }
+    }
 }
 static void destruction ()
+// la destruction relâche les mémoires partagées
 {
 	shmdt(ptRequetes);
 	shmdt(ptPlaces);

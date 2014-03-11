@@ -44,14 +44,14 @@ int main ()
 	//Création de la mem.partagée pour le parking
 	//int shmId = shmget(CLEFPARKING,sizeof(Parking),0660);
 	//Création des BaL
-	int msqIdEntree = msgget(CLEFMESSAGERIEENTREE,0660 | IPC_CREAT);
-	int msqIdSortie = msgget(CLEFMESSAGERIESORTIE,0660 | IPC_CREAT);
+    int msqIdEntree = msgget(CLEFMESSAGERIEENTREE,DROITS | IPC_CREAT);
+    int msqIdSortie = msgget(CLEFMESSAGERIESORTIE,DROITS | IPC_CREAT);
 	
 	//Création des Semaphores
 	int semId = semget(CLEFSEM,7,0660 | IPC_CREAT);	
 	//Memoires partagées
-	int requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),IPC_CREAT | 0660);
-	int parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),IPC_CREAT | 0660);
+    int requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),IPC_CREAT | DROITS);
+    int parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),IPC_CREAT | DROITS);
 
 	//Definition des Pid_t;
 	pid_t simulationTache;
@@ -107,6 +107,7 @@ int main ()
 		
 		kill(managerSortieTache,SIGUSR2);
 		waitpid(managerSortieTache,NULL,0);
+
 		//Destruction des canaux de communication
 		shmctl(requestAreaId,IPC_RMID,0);
 		shmctl(parkingPlaceId,IPC_RMID,0);
