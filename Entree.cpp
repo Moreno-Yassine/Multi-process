@@ -35,6 +35,7 @@ static TypeZone zoneRequete;
 void destruction ();
 
 void finEntree( int noSignal )
+// finEntree élimine tous les voituriers en execution
 {
 	if ( noSignal == SIGUSR2 )
 	{
@@ -87,13 +88,16 @@ void mortVoiturier(int noSignal)
 }
 
 void initialisation()
+// initialisation des canaux de communication (en ecriture pour les MP)
+// armement des signaux SIGCHLD pour la mort des voituriers et SIGUSR2
+// pour la destruction de la tâche
 {
-	semId = semget(CLEFSEM,7,0660);
-	requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),0);
-	parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),0);
-	ptPlaces = (Voiture*)shmat(parkingPlaceId,NULL,0);
-	ptRequetes = (Requete*)shmat(requestAreaId,NULL,0);
-	idMessagerie = msgget(CLEFMESSAGERIEENTREE,0); //0660 | IPC_CREAT
+    semId = semget(CLEFSEM,7,DROITS);
+    requestAreaId = shmget(CLEFREQUEST,sizeof(Requete[3]),ECRITURE);
+    parkingPlaceId = shmget(CLEFPLACES,sizeof(Voiture[8]),ECRITURE);
+    ptPlaces = (Voiture*)shmat(parkingPlaceId,NULL,ECRITURE);
+    ptRequetes = (Requete*)shmat(requestAreaId,NULL,ECRITURE);
+    idMessagerie = msgget(CLEFMESSAGERIEENTREE,DROITS);
 
 	struct sigaction actionFinEntree; //HANDLER de SIGUSR2
 	struct sigaction actionMortVoiturier; // HANDLER DE SIGCHLD
@@ -109,6 +113,9 @@ void initialisation()
 }
 
 void moteur (TypeBarriere barriereCourante)
+// Moteur récupère les voitures dans sa boîte aux lettres,
+// crée immédatement la requète afin d'enregistrer l'heure
+// charge la requète dans la MP, et attend une autorisation si le parking est plein
 {
 	MessagePorte messageEntrant;
 	int msg=-1;
@@ -120,7 +127,7 @@ void moteur (TypeBarriere barriereCourante)
 		Requete requeteCourante;
 		requeteCourante.barriere = barriereCourante;
 		requeteCourante.usager = messageEntrant.vehiculeEntrant.conducteur;
-		requeteCourante.daterequete = time(NULL);	//On enregistre l'heure d'arrivée devant la porte
+        requeteCourante.daterequete = time(NULL);	//enregistre l'heure d'arrivée devant la porte
 
 		DessinerVoitureBarriere(barriereCourante,requeteCourante.usager);
 

@@ -34,14 +34,21 @@
 #include <wait.h>
 #include <algorithm>
     
+
 //------------------------------------------------------------- Constantes
+#define APPLI "./Parking"
 const TypeTerminal TERMINAL = VT220;
 const int NB_SEMAPHORES = 7;
-const key_t CLEFMESSAGERIEENTREE = ftok("Parking",1);
-const key_t CLEFMESSAGERIESORTIE = ftok("Parking",2);
-const key_t CLEFSEM = ftok("Parking",3);
-const key_t CLEFPLACES = ftok("Parking",4);
-const key_t CLEFREQUEST = ftok("Parking",5);
+const int DROITS = 0660;
+const int LECTURE = 0400;
+const int ECRITURE = 0200;
+
+//Création des clés d'acces
+const key_t CLEFMESSAGERIEENTREE = ftok(APPLI,1);
+const key_t CLEFMESSAGERIESORTIE = ftok(APPLI,2);
+const key_t CLEFSEM = ftok(APPLI,3);
+const key_t CLEFPLACES = ftok(APPLI,4);
+const key_t CLEFREQUEST = ftok(APPLI,5);
 const int TEMPO = 1;
 
 // INDICE_BARRIERE_1 indique le numéro de la premiere porte 
@@ -83,6 +90,7 @@ enum Semaphores
 	MUTEX_PLACES
 };
 
+const Voiture VOITURE_NULLE = {AUCUN,0,0};
 const Requete REQUETE_NULLE = {AUCUNE,AUCUN,100}; 
 const int TAILLE_MESSAGE_PORTE = sizeof(MessagePorte);
 //////////////////////////////////////////////////////////////////  PUBLIC
